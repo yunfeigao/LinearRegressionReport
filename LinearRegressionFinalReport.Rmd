@@ -1,0 +1,128 @@
+---
+title: "Motor Trend Cars Fuel Efficiency Analysis"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Executive Summary
+By studying the dataset `mtcars`, we found that the manual transmission is better for MPG than the automatic one, by a margin of 1.809. We reach this conclusion by finding the best model and exploring the relationship between a set of variables as predictors and the MPG as the output.
+
+## Exploratory Data Analysis
+We begin the exploratory analysis by checking the structure and data class of the data frame `mtcars`.
+```{r explore data str}
+str(mtcars)
+head(mtcars, 2)
+```
+
+The data set has 32 observed samples and 11 variables, among which the "mpg" is the outcome and the other 10 are the predictors. It is noted that some variables, which should be considered as categorical factors, are listed as numeric. The conversion is conducted first.
+```{r converting num to factor}
+mtcars$cyl<-as.factor(mtcars$cyl)
+mtcars$vs<-as.factor(mtcars$vs)
+mtcars$am<-as.factor(mtcars$am)
+mtcars$gear<-as.factor(mtcars$gear)
+mtcars$carb<-as.factor(mtcars$carb)
+```
+
+A boxplot is performed between "mpg" and "am" (transmission type, 0 for automatic, 1 for manual)[Fig-1], and it's obvious that the manual transmission has higher MPG. We also plot the "mpg" as the function of all other 10 predictors in Fig-2 and found that it has either positive or negative dependency on all predictors except the "gear".
+
+## Model Fitting and Selection
+The visually observed dependency between "mpg" and almost all other predictors indicates the possible multicollinearity between the predictors. It is checked by calculating the variance inflation factor (vif) of each predictor in the complete fitting model.
+
+```{r complete fitting model and vif}
+library(car)
+fitAll<-lm(mpg~., mtcars)
+vif(fitAll)
+```
+
+The high VIF values of "disp", "hp" and "wt" suggest that a correlation exists between them and other predictors. The complete model with all 10 predictors is obviously not optimum and the number of predictors could be reduced. We use the Adjusted R-Squared, P values and backward elimination method to find the best model.
+
+```{r R^2 vs all plot to select models, results="hide"}
+library(leaps)
+subset<-regsubsets(mpg~., mtcars, nbest=2)
+```
+
+Fig-3 shows all the possible models and their corresponding Adjusted R-Squared values. We pick some top models with highest Adjusted R-Squared values for analysis, and try to find the best model among them.
+
+```{r three fitting models}
+fit1<-lm(mpg~cyl+hp+wt+am, mtcars)
+fit2<-lm(mpg~cyl+hp+wt+am+vs, mtcars)
+fit3<-lm(mpg~cyl+hp+wt+am+qsec, mtcars)
+```
+
+The "best" model is the one with fewest predictors yet still with one of the largest Adjusted R-Squared value among all models. The complete `fitAll` model has an Adjusted R-Squared value of ~0.807, and the `fit1`, `fit2`, and `fit3` models have very similar Adjusted R-Squared value of ~0.84. Therefore we intend to go with the `fit1` model. Now let's do the `anova` analysis bewteen `fit1` and `fit2`, and bewteen `fit1` and `fit3`, to test if they are substantially different.
+
+```{r anova test}
+anova(fit1, fit2)
+anova(fit1, fit3)
+```
+
+When comparing the fit1 and fit2 models, the P value of 0.269 is larger than 0.05, so the null hypothesis that the two models have no difference is tested false. Therefore there is a good reason to go with `fit1` model which has fewer predictors. The same reasoning is behind the `anova` analysis of `fit1` and `fit3` models, which has a p value of 0.279. **fit1 is the best model**.
+
+```{r fit1 model coefficients}
+summary(fit1)$coef
+summary(fit1)$adj.r.squared
+```
+
+The slope coefficient 1.809 of the predictor `am`, the transmission type, shows that the `mpg` will increase by 1.809 when using a manual transmission instead of an automatic one. The p value of 2.065e-1 is not significant, so there is good reason to believe that the slope value is different from 0. The adjusted R squared value of 0.84 show that the model can explain 84% of the total variance.
+
+## Residual Analysis
+The plots of `fit1` are attached as Fig-4. The "Residual vs Fitted" and "Standard Residual vs Fitted" curves show the residual is distributed randomly around 0 and no specified pattern can be seen. The "QQ" and "Cook's Distance" plots reveal, however, there may be some outliners toward the end of the sample data.
+
+
+## To Answer the Questions
+1. The manual transmission is better for MPG
+2. The expected MPG difference between the automatic and manual transmission is 1.809, with the manual one being higher.
+
+
+
+
+## Appendix
+
+```{r boxplot, fig.width=6, fig.height=4, echo=FALSE}
+data(mtcars)
+par(mfrow=c(1,1), oma=c(0,0,2,0))
+boxplot(mpg~am, mtcars, varwidth=TRUE, 
+        xlab="transmission type 0-auto 1-manual", 
+        ylab="miles per gallon")
+mtext("Fig-1 mpg vs transmission type", outer=TRUE, cex=1)
+```
+
+```{r mpg vs all, echo=FALSE}
+par(mfrow=c(2,5), oma=c(0,0,2,0))
+plot(mpg~cyl, mtcars)
+plot(mpg~disp, mtcars)
+plot(mpg~hp, mtcars)
+plot(mpg~drat, mtcars)
+plot(mpg~wt, mtcars)
+plot(mpg~qsec, mtcars)
+plot(mpg~vs, mtcars)
+plot(mpg~am, mtcars)
+plot(mpg~gear, mtcars)
+plot(mpg~carb, mtcars)
+mtext("Fig-2 mpg vs all predictors", outer=TRUE, cex=1)
+```
+
+```{r adj R^2 plot, echo=FALSE}
+library(leaps)
+subset<-regsubsets(mpg~., mtcars, nbest=2)
+par(mfrow=c(1,1), oma=c(0,0,2,0))
+plot(subset, scale="adjr2")
+mtext("Fig-3 Adjusted R-Squared Plot for All Models", outer=TRUE, cex=1)
+```
+
+```{r model fitting, echo=FALSE}
+par(mfrow=c(2,2), oma=c(0,0,2,0))
+plot(fit1, which=1)
+plot(fit1, which=2)
+plot(fit1, which=3)
+plot(fit1, which=5)
+## mtext("Fig-4 Model Fitting Analysis", outer=TRUE, cex=1)
+```
+
+
